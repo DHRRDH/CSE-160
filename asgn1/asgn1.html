@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Assignment 1 - Painting</title>
+</head>
+<body onload="main()">
+  <canvas id="webgl" width="400" height="400">
+    Please use a browser that supports "canvas"
+  </canvas>
+
+  <div>
+    <label>Red</label>
+    <input type="range" id="redSlide" min="0" max="100" value="100" />
+    <label>Green</label>
+    <input type="range" id="greenSlide" min="0" max="100" value="0" />
+    <label>Blue</label>
+    <input type="range" id="blueSlide" min="0" max="100" value="0" />
+    <label>Size</label>
+    <input type="range" id="sizeSlide" min="5" max="30" value="10" />
+    <label>Segment Count (Circle)</label>
+    <input type="range" id="segmentSlide" min="3" max="100" value="30" />
+    <br><br>
+    <button id="squareButton">Squares</button>
+    <button id="triangleButton">Triangles</button>
+    <button id="circleButton">Circles</button>
+    <button id="clearButton">Clear</button>
+    <button id="drawPictureButton">Draw Picture (Cat)</button>
+    <button id="undoButton">Undo</button>
+    <button id="saveButton">Save Image</button>
+    
+  </div>
+
+  <h3>Reference Picture:</h3>
+  <img src="image.png" width="200">
+
+  <script src="lib/webgl-utils.js"></script>
+  <script src="lib/webgl-debug.js"></script>
+  <script src="lib/cuon-utils.js"></script>
+  <script src="asgn1.js"></script>
+  <p><b>Bonus Features:</b> This project supports <i>Undo</i> and <i>Save Image</i> functionality. Click the corresponding buttons to try them!</p>
+
+</body>
+</html>
