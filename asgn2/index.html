@@ -1,0 +1,26 @@
+<!-- Student: Yunwei Ren, No public site available -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Blocky Cat - Assignment 2</title>
+</head>
+<body onload="main()">
+    <canvas id="webgl" width="600" height="600" style="border:1px solid blue;"></canvas>
+    <br><br>
+    <label>Global Rotation:</label>
+    <input type="range" min="0" max="360" value="0" id="globalRotationSlider">
+    <br><br>
+    <label>Front Leg Angle:</label>
+    <input type="range" min="-45" max="45" value="0" id="frontLegSlider">
+    <br><br>
+    <button id="animationButton">Toggle Animation</button>
+    <br><br>
+    <span id="fps" style="font-size: 14px; color: green;">FPS: </span>
+
+    <script src="lib/cuon-utils.js"></script>
+    <script src="lib/cuon-matrix.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
