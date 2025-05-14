@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> {/* Added user-scalable=no for better mobile experience */}
+    <title>Assignment 3: Virtual World</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; /* Prevent scrollbars */
+            background-color: #000; /* Can be any background */
+        }
+        canvas#webgl { 
+            width: 100vw;    /* Viewport width */
+            height: 100vh;   /* Viewport height */
+            display: block;  /* Remove extra space below canvas */
+        }
+    </style>
+</head>
+<body onload="main()">
+    <canvas id="webgl"> {/* Removed fixed width and height attributes */}
+        Please use a browser that supports WebGL.
+    </canvas>
+
+    <script src="lib/cuon-utils.js"></script>
+    <script src="lib/cuon-matrix.js"></script>
+    <script src="lib/webgl-utils.js"></script>
+    <script src="lib/webgl-debug.js"></script>
+
+    <script src="asgn3.js"></script>
+</body>
+</html>
