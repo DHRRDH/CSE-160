@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-F-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment 5 - Three.js Exploration</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
+        canvas { display: block; }
+        #blocker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex; 
+            align-items: center;
+            justify-content: center;
+        }
+        #instructions {
+            width: 50%;
+            padding: 20px;
+            background-color: white;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        #wowPointNote {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="blocker">
+        <div id="instructions">
+            <h1>Click to Start</h1>
+            <p>Move: WASD or Arrow Keys</p>
+            <p>Look: Mouse</p>
+            <p>Jump: SPACE</p>
+            <p>ESC to release controls</p>
+        </div>
+    </div>
+
+    <div id="wowPointNote">
+        <strong>Wow Point Feature:</strong><br>
+        Implemented first-person controls using <code>PointerLockControls</code>. This allows for immersive navigation with mouse-look and WASD/Arrow key movement, and jumping, enhancing the "first-person exploration" aspect mentioned in the assignment introduction. [cite: 6, 31, 32]
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        let scene, camera, renderer;
+        let controls;
+        let objects = []; 
+        let raycaster;
+
+        let moveForward = false;
+        let moveBackward = false;
+        let moveLeft = false;
+        let moveRight = false;
+        let canJump = false; 
+
+        let velocity = new THREE.Vector3();
+        let direction = new THREE.Vector3();
+        
+        const clock = new THREE.Clock(); 
+
+        let shapeCounts = { cube: 0, sphere: 0, cylinder: 0, cone: 0, torus: 0 };
+        const totalPrimaryShapesTarget = 20;
+        let currentPrimaryShapes = 0;
+
+        init();
+        animate(); 
+
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb); 
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); // [cite: 15, 19]
+            camera.position.set(0, 2, 10); 
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            controls = new PointerLockControls(camera, document.body); // [cite: 16, 24]
+            const blocker = document.getElementById('blocker');
+            const instructions = document.getElementById('instructions');
+
+            instructions.addEventListener('click', function () { controls.lock(); });
+            controls.addEventListener('lock', function () { instructions.style.display = 'none'; blocker.style.display = 'none'; });
+            controls.addEventListener('unlock', function () { blocker.style.display = 'flex'; instructions.style.display = ''; });
+            scene.add(controls.getObject());
+
+            const onKeyDown = function (event) {
+                switch (event.code) {
+                    case 'ArrowUp': case 'KeyW': moveForward = true; break;
+                    case 'ArrowLeft': case 'KeyA': moveLeft = true; break;
+                    case 'ArrowDown': case 'KeyS': moveBackward = true; break;
+                    case 'ArrowRight': case 'KeyD': moveRight = true; break;
+                    case 'Space':
+                        if (canJump === true) velocity.y += 25; 
+                        canJump = false;
+                        break;
+                }
+            };
+            const onKeyUp = function (event) {
+                switch (event.code) {
+                    case 'ArrowUp': case 'KeyW': moveForward = false; break;
+                    case 'ArrowLeft': case 'KeyA': moveLeft = false; break;
+                    case 'ArrowDown': case 'KeyS': moveBackward = false; break;
+                    case 'ArrowRight': case 'KeyD': moveRight = false; break;
+                }
+            };
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+
+            raycaster = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 1.1);
+
+            // Lights [cite: 14, 19, 25]
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            directionalLight.position.set(50, 100, 75);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 1024;
+            directionalLight.shadow.mapSize.height = 1024;
+            scene.add(directionalLight);
+
+            const pointLight = new THREE.PointLight(0xffaa00, 1.5, 50, 1); 
+            pointLight.position.set(-10, 5, -5);
+            pointLight.castShadow = true;
+            scene.add(pointLight);
+            const pointLightHelper = new THREE.PointLightHelper(pointLight, 0.5);
+            scene.add(pointLightHelper);
+
+            const spotLight = new THREE.SpotLight(0x00ff00, 5.0, 100, Math.PI / 8, 0.5, 1); 
+            spotLight.position.set(15, 10, 0);
+            spotLight.target.position.set(15, 0, 0);
+            spotLight.castShadow = true;
+            scene.add(spotLight);
+            scene.add(spotLight.target);
+            const spotLightHelper = new THREE.SpotLightHelper(spotLight);
+            scene.add(spotLightHelper);
+
+            // Ground Plane with brick_texture.jpg
+            const groundGeometry = new THREE.PlaneGeometry(200, 200);
+            const textureLoader = new THREE.TextureLoader(); 
+
+            const brickGroundTexture = textureLoader.load('textures/brick_texture.jpg'); 
+            brickGroundTexture.wrapS = THREE.RepeatWrapping;
+            brickGroundTexture.wrapT = THREE.RepeatWrapping;
+            brickGroundTexture.repeat.set(50, 50); 
+
+            const groundMaterial = new THREE.MeshStandardMaterial({
+                map: brickGroundTexture, 
+                side: THREE.DoubleSide
+            });
+            
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            // ground.position.y = 0; // Default is (0,0,0), effectively at y=0
+            scene.add(ground);
+            objects.push(ground); 
+
+            // Skybox (using example for now, replace later) [cite: 26, 27, 28]
+            const cubeTextureLoader = new THREE.CubeTextureLoader();
+            const skyboxTextures = cubeTextureLoader.load([
+                'textures/skybox_storforsen/posx.jpg', // Positive X (Right)
+                'textures/skybox_storforsen/negx.jpg', // Negative X (Left)
+                'textures/skybox_storforsen/posy.jpg', // Positive Y (Top)
+                'textures/skybox_storforsen/negy.jpg', // Negative Y (Bottom)
+                'textures/skybox_storforsen/posz.jpg', // Positive Z (Back)
+                'textures/skybox_storforsen/negz.jpg'  // Negative Z (Front)
+            ]);
+            scene.background = skyboxTextures;
+
+            // Primary Shapes [cite: 11, 12, 30]
+            // 1. Textured Cube with cube_texture.jpg [cite: 11, 21, 22]
+            const cubeLocalTexture = textureLoader.load('textures/cube_texture.jpg'); 
+            cubeLocalTexture.wrapS = THREE.RepeatWrapping;
+            cubeLocalTexture.wrapT = THREE.RepeatWrapping;
+            cubeLocalTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+            const texturedCubeGeometry = new THREE.BoxGeometry(2, 2, 2);
+            const texturedCubeMaterial = new THREE.MeshStandardMaterial({ map: cubeLocalTexture });
+            const texturedCube = new THREE.Mesh(texturedCubeGeometry, texturedCubeMaterial);
+            texturedCube.position.set(5, 1, 5);
+            texturedCube.castShadow = true;
+            texturedCube.receiveShadow = true;
+            scene.add(texturedCube);
+            objects.push(texturedCube);
+            shapeCounts.cube++; currentPrimaryShapes++;
+
+            // 2. Animated Sphere [cite: 11, 12]
+            const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
+            const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.2, metalness: 0.5 });
+            const animatedSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            animatedSphere.position.set(-5, 1, -5);
+            animatedSphere.castShadow = true;
+            animatedSphere.receiveShadow = true;
+            animatedSphere.userData = { initialY: 1, animationTime: Math.random() * 5 }; 
+            scene.add(animatedSphere);
+            objects.push(animatedSphere);
+            shapeCounts.sphere++; currentPrimaryShapes++;
+
+            // 3. Cylinder
+            const cylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 3, 32);
+            const cylinderMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff, roughness: 0.1, metalness: 0.8 });
+            const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+            cylinder.position.set(0, 1.5, -8);
+            cylinder.castShadow = true;
+            cylinder.receiveShadow = true;
+            scene.add(cylinder);
+            objects.push(cylinder);
+            shapeCounts.cylinder++; currentPrimaryShapes++;
+
+            // Add more shapes to reach 20 [cite: 11, 30]
+            for (let i = 0; i < totalPrimaryShapesTarget - 3; i++) {
+                const type = Math.floor(Math.random() * 5); 
+                let shape;
+                let randomMaterial = new THREE.MeshStandardMaterial({
+                    color: Math.random() * 0xffffff,
+                    roughness: Math.random(),
+                    metalness: Math.random()
+                });
+
+                switch(type) {
+                    case 0: shape = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), randomMaterial); shapeCounts.cube++; break;
+                    case 1: shape = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 16), randomMaterial); shapeCounts.sphere++; break;
+                    case 2: shape = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16), randomMaterial); shapeCounts.cylinder++; break;
+                    case 3: shape = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.5, 16), randomMaterial); shapeCounts.cone++; break;
+                    default: shape = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.2, 16, 32), randomMaterial); shapeCounts.torus++; break;
+                }
+                shape.position.set( (Math.random() - 0.5) * 50, Math.random() * 5 + 0.5, (Math.random() - 0.5) * 50 );
+                shape.castShadow = true;
+                shape.receiveShadow = true;
+                scene.add(shape);
+                objects.push(shape);
+                currentPrimaryShapes++;
+            }
+            console.log("Total Primary Shapes:", currentPrimaryShapes, "Details:", shapeCounts);
+
+
+            // --- CUSTOM 3D MODELS LOADING SECTION --- [cite: 13]
+            const loader = new GLTFLoader();
+
+            // 1. Load Cottage
+            loader.load(
+                'models/Cottage.glb', // Path to your Cottage model
+                function (gltf) {
+                    const cottage = gltf.scene;
+                    cottage.position.set(15, 0, -15); // Example position
+                    cottage.scale.set(2, 2, 2);     // Example scale
+                    cottage.traverse(function (node) {
+                        if (node.isMesh) {
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
+                    });
+                    scene.add(cottage);
+                    objects.push(cottage); 
+                    console.log('Cottage loaded');
+                },
+                undefined, 
+                function (error) {
+                    console.error('Error loading Cottage.glb:', error);
+                }
+            );
+
+            // 2. Load Roman Centurion
+            loader.load(
+                'models/Roman Centurion.glb', // Path to your Roman Centurion model
+                function (gltf) {
+                    const romanCenturion = gltf.scene;
+                    romanCenturion.position.set(-15, 0, -10); // Example position
+                    romanCenturion.scale.set(1.5, 1.5, 1.5);   // Example scale
+                    romanCenturion.traverse(function (node) {
+                        if (node.isMesh) {
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
+                    });
+                    scene.add(romanCenturion);
+                    objects.push(romanCenturion); 
+                    console.log('Roman Centurion loaded');
+                },
+                undefined, 
+                function (error) {
+                    console.error('Error loading Roman Centurion.glb:', error);
+                }
+            );
+
+            // 3. Load Trees
+            loader.load(
+                'models/Trees.glb', // Path to your Trees model
+                function (gltf) {
+                    const trees = gltf.scene;
+                    trees.position.set(0, 0, -25);  // Example position
+                    // trees.scale.set(1, 1, 1); // Adjust if needed
+                    trees.traverse(function (node) {
+                        if (node.isMesh) {
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
+                    });
+                    scene.add(trees);
+                    objects.push(trees); 
+                    console.log('Trees loaded');
+                },
+                undefined, 
+                function (error) {
+                    console.error('Error loading Trees.glb:', error);
+                }
+            );
+            // --- END OF CUSTOM 3D MODELS LOADING SECTION ---
+
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() { 
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta(); 
+
+            if (controls.isLocked === true) {
+                raycaster.ray.origin.copy(controls.getObject().position);
+                const intersections = raycaster.intersectObjects(objects, true); 
+                const onObject = intersections.length > 0;
+
+                velocity.x -= velocity.x * 10.0 * delta; 
+                velocity.z -= velocity.z * 10.0 * delta; 
+                velocity.y -= 9.8 * 5.0 * delta; 
+
+                direction.z = Number(moveForward) - Number(moveBackward);
+                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize(); 
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * 40.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 40.0 * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+                controls.getObject().position.y += (velocity.y * delta);
+
+                if (controls.getObject().position.y < 1) { 
+                    velocity.y = 0;
+                    controls.getObject().position.y = 1;
+                    canJump = true;
+                }
+
+                if (onObject === true) {
+                    const intersection = intersections[0];
+                    const tolerance = 0.05;
+                    if (controls.getObject().position.y <= intersection.point.y + 1 + tolerance) { 
+                        velocity.y = Math.max(0, velocity.y); 
+                        controls.getObject().position.y = intersection.point.y + 1;
+                        canJump = true;
+                    }
+                } else {
+                    if (velocity.y <=0) canJump = false; 
+                }
+            }
+            
+            const animatedSphere = scene.children.find(child => child.userData && typeof child.userData.initialY === 'number' ); // [cite: 12]
+            if (animatedSphere) {
+                animatedSphere.userData.animationTime += delta * 2; 
+                animatedSphere.position.y = animatedSphere.userData.initialY + Math.abs(Math.sin(animatedSphere.userData.animationTime)) * 2; 
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
